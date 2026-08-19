@@ -18,13 +18,27 @@
 /* USER CODE END Header */
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
+#include "cmsis_os.h"
 #include "can.h"
+#include "tim.h"
+#include "usart.h"
 #include "usb_device.h"
 #include "gpio.h"
+#include "fsmc.h"
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
-
+#include "lcd.h"
+#include "mytim.h"
+#include "Motor_can.h"
+#include "dji_pid.h"
+#include "tjc_usart_hmi.h"
+#include "TJC_lcd.h"
+#include "bsp_servo.h"
+#include "my_usart.h"
+#include "Mission.h"
+#include "Emm_V5.h"
+#include "X_V2_can.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -34,6 +48,7 @@
 
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
+
 
 /* USER CODE END PD */
 
@@ -50,6 +65,7 @@
 
 /* Private function prototypes -----------------------------------------------*/
 void SystemClock_Config(void);
+void MX_FREERTOS_Init(void);
 /* USER CODE BEGIN PFP */
 
 /* USER CODE END PFP */
@@ -89,10 +105,47 @@ int main(void)
   /* Initialize all configured peripherals */
   MX_GPIO_Init();
   MX_CAN2_Init();
-  MX_USB_DEVICE_Init();
+  MX_CAN1_Init();
+  MX_FSMC_Init();
+  MX_TIM2_Init();
+  MX_TIM3_Init();
+  MX_TIM4_Init();
+  MX_TIM14_Init();
+  MX_USART1_UART_Init();
+  MX_USART3_UART_Init();
+  MX_UART4_Init();
+  MX_UART5_Init();
+  MX_USART6_UART_Init();
   /* USER CODE BEGIN 2 */
-
+	LCD_Init();//lcd init
+  LCD_Clear(WHITE);
+	Can_Filter_Init();
+	Motor_PID_Init();
+//	motor_pos_Init();//电机位置环初始化
+	HAL_TIM_Base_Start_IT(&htim4);        
+  HAL_TIM_Base_Start_IT(&htim3);     
+	HAL_TIM_PWM_Start(&htim2, TIM_CHANNEL_1);
+	HAL_TIM_PWM_Start(&htim2, TIM_CHANNEL_2);
+	HAL_TIM_PWM_Start(&htim2, TIM_CHANNEL_3);
+	HAL_TIM_PWM_Start(&htim2, TIM_CHANNEL_4);
+  motor42_Init();//42电机初始化
+	initRingBuffer();//初始化环形缓冲区
+	HAL_UART_Receive_IT(&TJC_UART, RxBuffer, 1);//打开串口接收中断
+	Servo_Init(270,270,270,270);
+	HAL_UART_Receive_IT(&huart3, (u8 *)&rec_data3, 1);
+	HAL_UART_Receive_IT(&huart4, (u8 *)&rec_data4, 1);
+	HAL_UART_Receive_IT(&huart5, (u8 *)&rec_data5, 1);
+	HAL_UART_Receive_IT(&huart6, (u8 *)&rec_data6, 1);
   /* USER CODE END 2 */
+
+  /* Init scheduler */
+  osKernelInitialize();  /* Call init function for freertos objects (in cmsis_os2.c) */
+  MX_FREERTOS_Init();
+
+  /* Start scheduler */
+  osKernelStart();
+
+  /* We should never get here as control is now taken by the scheduler */
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
@@ -153,6 +206,28 @@ void SystemClock_Config(void)
 /* USER CODE BEGIN 4 */
 
 /* USER CODE END 4 */
+
+/**
+  * @brief  Period elapsed callback in non blocking mode
+  * @note   This function is called  when TIM6 interrupt took place, inside
+  * HAL_TIM_IRQHandler(). It makes a direct call to HAL_IncTick() to increment
+  * a global variable "uwTick" used as application time base.
+  * @param  htim : TIM handle
+  * @retval None
+  */
+void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
+{
+  /* USER CODE BEGIN Callback 0 */
+
+  /* USER CODE END Callback 0 */
+  if (htim->Instance == TIM6)
+  {
+    HAL_IncTick();
+  }
+  /* USER CODE BEGIN Callback 1 */
+  My_TIM_PeriodElapsedCallback(htim);
+  /* USER CODE END Callback 1 */
+}
 
 /**
   * @brief  This function is executed in case of error occurrence.
